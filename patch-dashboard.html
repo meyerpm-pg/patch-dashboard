@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patch Baseline Dashboard – Cape Girardeau</title>
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --overdue:  #d63031;
+  --urgent:   #e17055;
+  --warning:  #e6a817;
+  --warn-bg:  #FFF8E1;
+  --future:   #0984e3;
+  --ok:       #00b894;
+  --bg:       #f0f2f5;
+  --card:     #ffffff;
+  --hdr:      #1a2744;
+  --text:     #2d3436;
+  --sub:      #636e72;
+  --border:   #dfe6e9;
+  --mono:     'Consolas', 'Courier New', monospace;
+}
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height:1.45; font-size:14px; }
+
+/* ── SITE HEADER ── */
+.site-header { background: var(--hdr); color: #fff; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.site-header h1 { font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.site-header .meta { font-size: .78rem; opacity: .8; text-align: right; line-height: 1.7; }
+.site-header .meta strong { color: #74b9ff; }
+
+/* ── URGENCY NAV BAND ── */
+.band-bar { display: grid; grid-template-columns: repeat(4, 1fr); background: #111d35; }
+.band { padding: 14px 20px; text-align: center; border-right: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: background .15s; user-select: none; }
+.band:last-child { border-right: none; }
+.band:hover, .band.active { background: rgba(255,255,255,.1); }
+.band .count { font-size: 2.1rem; font-weight: 800; line-height: 1; }
+.band .lbl   { font-size: .68rem; letter-spacing: .9px; text-transform: uppercase; margin-top: 4px; color: rgba(255,255,255,.55); }
+.band.b-ov .count  { color: #ff7675; }
+.band.b-urg .count { color: #fdcb6e; }
+.band.b-w  .count  { color: #a8d8ea; }
+.band.b-f  .count  { color: #74b9ff; }
+
+/* ── MAIN ── */
+main { max-width: 1380px; margin: 0 auto; padding: 28px 22px 60px; }
+
+/* ── SECTION LABEL ── */
+.sec-hdr { display: flex; align-items: center; gap: 12px; margin: 36px 0 14px; padding: 13px 18px; border-radius: 10px; border-left: 6px solid; }
+.sec-hdr.sh-ov  { background: #fff0f0; border-color: var(--overdue); }
+.sec-hdr.sh-urg { background: #fff7f0; border-color: var(--urgent); }
+.sec-hdr.sh-w   { background: #fffdf0; border-color: var(--warning); }
+.sec-hdr.sh-f   { background: #f0f7ff; border-color: var(--future); }
+.sec-hdr h2 { font-size: .82rem; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; flex: 1; }
+.sec-hdr.sh-ov  h2 { color: var(--overdue); }
+.sec-hdr.sh-urg h2 { color: var(--urgent); }
+.sec-hdr.sh-w   h2 { color: #b07d00; }
+.sec-hdr.sh-f   h2 { color: var(--future); }
+.sec-pill { padding: 3px 12px; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+.sp-ov  { background: #ffd5d5; color: var(--overdue); }
+.sp-urg { background: #ffdece; color: var(--urgent); }
+.sp-w   { background: #fff0c0; color: #b07d00; }
+.sp-f   { background: #cce4ff; color: var(--future); }
+.sec-desc { font-size: .72rem; opacity: .7; margin-left: auto; font-style: italic; }
+
+/* ── BASELINE CARD GRID ── */
+.bl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+
+.bl-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); transition: box-shadow .15s, transform .1s; }
+.bl-card:hover { box-shadow: 0 6px 22px rgba(0,0,0,.12); transform: translateY(-1px); }
+
+/* ── CARD TOP ── */
+.card-top { padding: 20px 20px 16px; border-left: 6px solid var(--future); }
+.bl-card.ov .card-top  { border-left-color: var(--overdue); }
+.bl-card.urg .card-top { border-left-color: var(--urgent); }
+.bl-card.w  .card-top  { border-left-color: var(--warning); }
+
+/* ── DUE DATE HERO ── */
+.due-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+.due-block .lbl  { font-size: .62rem; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; color: var(--sub); margin-bottom: 3px; }
+.due-block .date { font-size: 1.6rem; font-weight: 800; letter-spacing: -.5px; line-height: 1; }
+.ov  .due-block .date { color: var(--overdue); }
+.urg .due-block .date { color: var(--urgent); }
+.w   .due-block .date { color: var(--warning); }
+
+.cd-badge { padding: 5px 13px; border-radius: 30px; font-size: .8rem; font-weight: 700; flex-shrink: 0; margin-top: 4px; }
+.ov  .cd-badge { background: #ffeaea; color: var(--overdue); }
+.urg .cd-badge { background: #fff2ea; color: var(--urgent); }
+.w   .cd-badge { background: var(--warn-bg); color: var(--warning); }
+.bl-card:not(.ov):not(.urg):not(.w) .cd-badge { background: #e8f4ff; color: var(--future); }
+
+/* ── URGENCY PROGRESS BAR ── */
+.urg-bar { height: 5px; background: #edf1f3; border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
+.urg-fill { height: 100%; border-radius: 3px; }
+.ov  .urg-fill { background: var(--overdue); width: 100%; }
+.urg .urg-fill { background: var(--urgent); }
+.w   .urg-fill { background: var(--warning); }
+.bl-card:not(.ov):not(.urg):not(.w) .urg-fill { background: var(--future); }
+
+/* ── BASELINE NAME ── */
+.bl-name { font-size: .87rem; font-weight: 600; line-height: 1.4; margin-bottom: 14px; }
+
+/* ── STATS ── */
+.bl-stats { display: flex; gap: 22px; }
+.bl-stat .sv { font-size: 1.15rem; font-weight: 700; }
+.bl-stat .sk { font-size: .64rem; text-transform: uppercase; letter-spacing: .7px; color: var(--sub); }
+
+/* ── TAGS ── */
+.tag-row { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .65rem; font-weight: 600; background: #edf0f3; color: var(--sub); }
+.tag.reboot { background: #fff0eb; color: #c0392b; }
+.tag.app    { background: #eaf3ff; color: #0984e3; }
+.tag.hw     { background: #eafaf5; color: #00b07a; }
+.tag.vnq    { background: #fff3ee; color: var(--urgent); }
+
+/* ── DEVICE TOGGLE ── */
+.dev-toggle { width: 100%; background: #f7f8fa; border: none; border-top: 1px solid var(--border); padding: 9px 20px; text-align: left; cursor: pointer; font-size: .77rem; font-weight: 600; color: var(--sub); display: flex; align-items: center; justify-content: space-between; transition: background .12s; }
+.dev-toggle:hover { background: #edf1f5; color: var(--text); }
+.dev-arrow { font-size: .6rem; transition: transform .2s; }
+.dev-arrow.open { transform: rotate(180deg); }
+.dev-list { display: none; padding: 10px 20px 14px; background: #f7f8fa; border-top: 1px solid var(--border); }
+.dev-list.open { display: block; }
+.dev-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.dchip { font-family: var(--mono); font-size: .71rem; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; color: var(--text); }
+
+/* ── COMPONENTS SECTION ── */
+.comp-toggle { width: 100%; background: #f0f4f8; border: none; border-top: 1px solid var(--border); padding: 9px 20px; text-align: left; cursor: pointer; font-size: .77rem; font-weight: 600; color: var(--sub); display: flex; align-items: center; justify-content: space-between; transition: background .12s; }
+.comp-toggle:hover { background: #e6edf5; color: var(--text); }
+.comp-list { display: none; padding: 0 20px 12px; background: #f0f4f8; border-top: 1px solid var(--border); }
+.comp-list.open { display: block; }
+.kb-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e2e8ef; font-size: .75rem; }
+.kb-item:last-child { border-bottom: none; }
+.kb-num { font-family: var(--mono); font-size: .71rem; font-weight: 700; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; color: var(--hdr); flex-shrink: 0; }
+.kb-desc { flex: 1; color: var(--sub); }
+.sev-c { background: #ffeaea; color: var(--overdue); font-size: .63rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.sev-i { background: #fff2ea; color: var(--urgent); font-size: .63rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+
+/* ── VULN SECTION ── */
+.vuln-cfg-bar { background:#fff8e1; border:1px solid #ffe082; border-radius:10px; padding:13px 18px; margin-bottom:18px; font-size:.78rem; color:#795548; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.vuln-cfg-bar strong { color:#5d4037; }
+.vuln-cfg-bar input { padding:6px 10px; border:1px solid #ffe082; border-radius:6px; font-family:var(--mono); font-size:.74rem; min-width:320px; background:#fff; outline:none; }
+.vuln-cfg-bar input:focus { border-color:var(--future); box-shadow:0 0 0 2px rgba(9,132,227,.12); }
+.vuln-cfg-bar button { padding:6px 14px; background:var(--hdr); color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:.74rem; font-weight:600; white-space:nowrap; }
+.vuln-cfg-bar button:hover { background:#253660; }
+.vuln-status { font-size:.74rem; color:var(--sub); font-style:italic; }
+.vuln-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; margin-top:4px; }
+.vuln-card { background:var(--card); border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); overflow:hidden; border-left:5px solid var(--border); }
+.vuln-card.vc-crit { border-left-color:var(--overdue); }
+.vuln-card.vc-high { border-left-color:var(--urgent); }
+.vuln-card.vc-med  { border-left-color:var(--warning); }
+.vuln-card.vc-low  { border-left-color:var(--ok); }
+.vuln-card.vc-none { border-left-color:var(--border); }
+.vc-top { padding:12px 14px 10px; }
+.vc-host { font-family:var(--mono); font-weight:700; font-size:.8rem; color:var(--hdr); margin-bottom:6px; }
+.vc-pills { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+.vc-sev { padding:2px 9px; border-radius:12px; font-size:.65rem; font-weight:700; }
+.vc-sev.vc-crit { background:#ffeaea; color:var(--overdue); }
+.vc-sev.vc-high { background:#fff2ea; color:var(--urgent); }
+.vc-sev.vc-med  { background:var(--warn-bg); color:#b07d00; }
+.vc-sev.vc-low  { background:#eafaf5; color:var(--ok); }
+.vc-cve-list { font-size:.71rem; color:var(--sub); line-height:1.8; padding:8px 14px 12px; border-top:1px solid var(--border); background:#fafbfc; max-height:110px; overflow-y:auto; }
+.vc-cve-list a { color:var(--future); text-decoration:none; font-family:var(--mono); font-size:.7rem; }
+.vc-cve-list a:hover { text-decoration:underline; }
+.vuln-empty { text-align:center; color:var(--sub); font-size:.8rem; padding:32px; background:var(--card); border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+.tbl-wrap { background: var(--card); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden; }
+.tbl-ctrl { padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid var(--border); background: #fafbfc; }
+.tbl-ctrl input, .tbl-ctrl select { padding: 7px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: .81rem; color: var(--text); background: #fff; outline: none; min-width: 180px; }
+.tbl-ctrl input:focus, .tbl-ctrl select:focus { border-color: var(--future); box-shadow: 0 0 0 3px rgba(9,132,227,.12); }
+.tbl-meta { margin-left: auto; font-size: .75rem; color: var(--sub); }
+.clr-btn { padding: 7px 13px; background: #fff; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; font-size: .78rem; color: var(--sub); }
+.clr-btn:hover { background: var(--bg); }
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+thead tr { background: var(--hdr); color: #fff; }
+th { padding: 10px 14px; text-align: left; font-size: .69rem; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; cursor: pointer; white-space: nowrap; user-select: none; }
+th:hover { background: #253660; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:hover { background: #f5f8fc; }
+tbody tr:last-child { border-bottom: none; }
+td { padding: 9px 14px; vertical-align: middle; }
+td.mono { font-family: var(--mono); font-size: .77rem; font-weight: 600; }
+td.due-td { font-weight: 700; font-size: .82rem; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.chip.ov  { background: #ffeaea; color: var(--overdue); }
+.chip.urg { background: #fff2ea; color: var(--urgent); }
+.chip.w   { background: var(--warn-bg); color: var(--warning); }
+.chip.f   { background: #e8f4ff; color: var(--future); }
+
+footer { text-align:center; color:var(--sub); font-size:.72rem; padding:18px; border-top:1px solid var(--border); margin-top: 8px; }
+
+/* ── AI CHAT PANEL ── */
+#chat-fab { position:fixed; bottom:28px; right:28px; width:54px; height:54px; border-radius:50%; background:var(--hdr); color:#fff; border:none; font-size:1.35rem; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.28); z-index:1000; display:flex; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; }
+#chat-fab:hover { transform:scale(1.08); box-shadow:0 6px 24px rgba(0,0,0,.35); }
+#chat-fab .notif { position:absolute; top:-2px; right:-2px; width:13px; height:13px; background:var(--overdue); border-radius:50%; border:2px solid #fff; display:none; }
+#chat-panel { position:fixed; bottom:96px; right:28px; width:370px; height:530px; background:var(--card); border-radius:16px; box-shadow:0 12px 52px rgba(0,0,0,.22); z-index:999; display:flex; flex-direction:column; transform:scale(.9) translateY(20px); transform-origin:bottom right; opacity:0; pointer-events:none; transition:transform .2s ease,opacity .2s ease; overflow:hidden; }
+#chat-panel.open { transform:scale(1) translateY(0); opacity:1; pointer-events:all; }
+.chat-hdr { background:var(--hdr); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.chat-hdr .ch-av { width:32px; height:32px; background:rgba(255,255,255,.15); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0; }
+.chat-hdr .ch-info { flex:1; }
+.chat-hdr .ch-info .ch-name { font-weight:700; font-size:.86rem; }
+.chat-hdr .ch-info .ch-stat { font-size:.69rem; opacity:.65; }
+.chat-hdr .ch-cfg { background:none; border:none; color:rgba(255,255,255,.55); cursor:pointer; font-size:.9rem; padding:4px 6px; border-radius:4px; transition:color .15s; line-height:1; }
+.chat-hdr .ch-cfg:hover { color:#fff; }
+.chat-msgs { flex:1; overflow-y:auto; padding:14px 13px 8px; display:flex; flex-direction:column; gap:9px; scroll-behavior:smooth; }
+.chat-msgs::-webkit-scrollbar { width:4px; } .chat-msgs::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.cmsg { max-width:86%; padding:9px 12px; border-radius:12px; font-size:.79rem; line-height:1.55; word-break:break-word; }
+.cmsg.user { background:var(--hdr); color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
+.cmsg.bot  { background:#f0f2f5; color:var(--text); align-self:flex-start; border-bottom-left-radius:3px; }
+.cmsg.typing { opacity:.55; font-style:italic; }
+.chat-token-setup { padding:14px; border-top:1px solid var(--border); background:#fafbfc; flex-shrink:0; }
+.chat-token-setup p { font-size:.72rem; color:var(--sub); margin-bottom:9px; line-height:1.5; }
+.chat-token-setup code { font-family:var(--mono); background:#edf0f3; padding:1px 4px; border-radius:3px; font-size:.75em; }
+.cts-row { display:flex; gap:6px; }
+.cts-row input { flex:1; padding:7px 10px; border:1px solid var(--border); border-radius:7px; font-size:.74rem; font-family:var(--mono); color:var(--text); outline:none; min-width:0; }
+.cts-row input:focus { border-color:var(--future); box-shadow:0 0 0 2px rgba(9,132,227,.15); }
+.cts-row button { padding:7px 13px; background:var(--hdr); color:#fff; border:none; border-radius:7px; cursor:pointer; font-size:.75rem; font-weight:600; white-space:nowrap; }
+.cts-row button:hover { background:#253660; }
+.chat-input-row { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; flex-shrink:0; }
+.chat-input-row textarea { flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:9px; font-size:.79rem; font-family:inherit; resize:none; outline:none; height:38px; max-height:96px; line-height:1.4; overflow-y:auto; color:var(--text); }
+.chat-input-row textarea:focus { border-color:var(--future); box-shadow:0 0 0 2px rgba(9,132,227,.15); }
+.chat-send { width:36px; height:38px; border:none; background:var(--hdr); color:#fff; border-radius:9px; cursor:pointer; font-size:.95rem; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+.chat-send:hover { background:#253660; }
+.chat-send:disabled { opacity:.38; cursor:default; }
+.chat-err { padding:8px 13px; background:#ffeaea; color:var(--overdue); font-size:.73rem; border-top:1px solid #fcc; flex-shrink:0; display:none; }
+@media(max-width:420px){ #chat-panel{ width:calc(100vw - 24px); right:12px; } }
+
+@media(max-width:680px) {
+  .bl-grid { grid-template-columns: 1fr; }
+  .band-bar { grid-template-columns: 1fr 1fr; }
+  .due-block .date { font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>&#128197; Patch Baseline Dashboard</h1>
+  <div class="meta">
+    Cape Girardeau &nbsp;|&nbsp; Windows Endpoints &nbsp;|&nbsp; Baby Care<br>
+    Report Date: <strong>April 6, 2026</strong> &nbsp;&mdash;&nbsp; Focused on: <strong>Baseline Due Dates</strong>
+  </div>
+</header>
+
+<div class="band-bar">
+  <div class="band b-ov" onclick="toggleBand('ov')">
+    <div class="count" id="c-ov">0</div>
+    <div class="lbl">&#9888; Overdue</div>
+  </div>
+  <div class="band b-urg" onclick="toggleBand('urg')">
+    <div class="count" id="c-urg">0</div>
+    <div class="lbl">&#128293; Due &le; 7 Days</div>
+  </div>
+  <div class="band b-w" onclick="toggleBand('w')">
+    <div class="count" id="c-w">0</div>
+    <div class="lbl">&#9201; Due &le; 30 Days</div>
+  </div>
+  <div class="band b-f" onclick="toggleBand('f')">
+    <div class="count" id="c-f">0</div>
+    <div class="lbl">&#128197; Future</div>
+  </div>
+</div>
+
+<main>
+  <div id="sections"></div>
+
+  <div class="sec-hdr sh-f" style="margin-top:44px">
+    <h2>&#128737; CrowdStrike Live Vulnerabilities</h2>
+    <span class="sec-pill sp-f" id="vuln-count-pill">not loaded</span>
+    <span class="sec-desc">Pulled from SharePoint &rarr; Power Automate &rarr; CrowdStrike Spotlight &nbsp;&bull;&nbsp; <span id="vuln-status"></span></span>
+  </div>
+  <div id="vuln-grid" class="vuln-grid"></div>
+
+  <div class="sec-hdr" style="margin-top:44px">
+    <h2>All Devices &mdash; Searchable &amp; Filterable</h2>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-ctrl">
+      <input type="text" id="srch" placeholder="&#128269; Search computer or baseline&hellip;">
+      <select id="fUr"><option value="">All Urgencies</option><option value="ov">Overdue</option><option value="urg">Due &le; 7 Days</option><option value="w">Due &le; 30 Days</option><option value="f">Future</option></select>
+      <select id="fCt"><option value="">All Categories</option></select>
+      <span class="tbl-meta" id="tMeta"></span>
+      <button class="clr-btn" onclick="clr()">&#10005; Clear</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th onclick="srt(0)">Computer &#9663;</th>
+        <th onclick="srt(1)">Baseline &#9663;</th>
+        <th onclick="srt(2)">Category &#9663;</th>
+        <th onclick="srt(3)">Baseline Due Date &#9663;</th>
+        <th onclick="srt(4)">Days to Due &#9663;</th>
+        <th onclick="srt(5)">Urgency &#9663;</th>
+      </tr></thead>
+      <tbody id="tBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>Static snapshot &bull; April 6, 2026 &bull; Source: BigFix Explore &amp; Patch Compliance Export &bull; All devices shown are "Applicable" &mdash; patch not yet applied</footer>
+
+<!-- ── AI CHAT ── -->
+<button id="chat-fab" onclick="chatToggle()" aria-label="Open Patch Assistant">
+  &#129302;
+  <span class="notif" id="chat-notif"></span>
+</button>
+
+<div id="chat-panel">
+  <div class="chat-hdr">
+    <div class="ch-av">&#129302;</div>
+    <div class="ch-info">
+      <div class="ch-name">Patch Assistant</div>
+      <div class="ch-stat" id="ch-stat">GitHub Copilot &middot; claude-sonnet-4.5</div>
+    </div>
+    <button class="ch-cfg" onclick="chatShowSetup()" title="Change token">&#9881;</button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs">
+    <div class="cmsg bot">&#128075; Hi! I know your 5 patch baselines, their due dates, and every affected device. Ask me anything.</div>
+  </div>
+  <div class="chat-token-setup" id="chat-token-setup">
+    <p>Paste your GitHub token to enable AI. In VS Code, open the <strong>Accounts</strong> menu (bottom-left) &rarr; your GitHub account &rarr; <em>Copy token</em>. It starts with <code>ghu_</code> or <code>ghp_</code>.</p>
+    <p style="margin-top:6px;color:#e17055"><strong>&#9888; CORS note:</strong> This only works when hosted on SharePoint / a web server &mdash; not when opened from a local file.</p>
+    <div class="cts-row">
+      <input type="password" id="ghu-input" placeholder="ghu_... or ghp_..." autocomplete="off" onkeydown="if(event.key==='Enter')saveToken()">
+      <button onclick="saveToken()">Connect</button>
+    </div>
+  </div>
+  <div class="chat-input-row" id="chat-input-row" style="display:none">
+    <textarea id="chat-input" placeholder="Ask about baselines, devices, due dates&hellip;" rows="1" onkeydown="chatKey(event)"></textarea>
+    <button class="chat-send" id="chat-send" onclick="sendMsg()">&#10148;</button>
+  </div>
+  <div class="chat-err" id="chat-err"></div>
+</div>
+
+<script>
+const TODAY = new Date('2026-04-06');
+
+// ──────────────────────────────────────────────────────────────────────────
+// SHAREPOINT DATA SOURCE
+// All baseline + device data lives in two SharePoint lists:
+//
+//   List 1: PatchBaselines
+//     Title         (single line)  — baseline display name
+//     BaselineId    (single line)  — short id, e.g. msfeb26
+//     DueDate       (date/time)    — baseline due date
+//     Category      (single line)  — e.g. "Microsoft Security"
+//     Tags          (single line)  — comma-separated: hw, vnq, reboot, app
+//     Noncompliant  (Yes/No)       — true only if BigFix shows Noncompliant
+//     CompTotal     (number)       — total component count
+//     CveCount      (number)       — total CVE count
+//     KBList        (multi-line)   — JSON array: [{kb,desc,sev},...]
+//
+//   List 2: PatchDevices
+//     Title         (single line)  — computer/hostname
+//     BaselineId    (single line)  — matches BaselineId in PatchBaselines
+// ──────────────────────────────────────────────────────────────────────────
+const SP_BASE      = 'https://pgone.sharepoint.com/sites/CapeITOT';
+const SP_HEADERS   = { 'Accept': 'application/json;odata=verbose' };
+const SP_CREDS     = 'include';
+
+let BL = [];  // populated by initDashboard()
+
+async function spFetch(listName, query) {
+  const url = `${SP_BASE}/_api/web/lists/getbytitle('${listName}')/items?${query}&$top=2000`;
+  const res = await fetch(url, { headers: SP_HEADERS, credentials: SP_CREDS });
+  if (!res.ok) throw new Error(`SharePoint list "${listName}" returned HTTP ${res.status}`);
+  const data = await res.json();
+  return data?.d?.results || [];
+}
+
+async function initDashboard() {
+  const sectEl = document.getElementById('sections');
+  sectEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--sub)">&#8987; Loading patch data from SharePoint…</div>';
+  try {
+    const [baselines, devices] = await Promise.all([
+      spFetch('PatchBaselines', '$select=Title,BaselineId,DueDate,Category,Tags,Noncompliant,CompTotal,CveCount,KBList&$orderby=DueDate asc'),
+      spFetch('PatchDevices',   '$select=Title,BaselineId'),
+    ]);
+
+    // Build device map: baselineId -> [hostname, ...]
+    const devMap = {};
+    devices.forEach(d => {
+      const bid = (d.BaselineId || '').trim();
+      if (!devMap[bid]) devMap[bid] = [];
+      devMap[bid].push((d.Title || '').toUpperCase());
+    });
+
+    // Build BL array from SharePoint data
+    BL = baselines.map(b => {
+      const bid = (b.BaselineId || '').trim();
+      let fixlets = [];
+      try { fixlets = JSON.parse(b.KBList || '[]'); } catch {}
+      return {
+        id:           bid,
+        due:          (b.DueDate || '').slice(0, 10),
+        name:         b.Title || '',
+        cat:          b.Category || '',
+        tags:         (b.Tags || '').split(',').map(t=>t.trim()).filter(Boolean),
+        noncompliant: b.Noncompliant === true || b.Noncompliant === 'Yes',
+        compTotal:    parseInt(b.CompTotal) || 0,
+        cveCount:     parseInt(b.CveCount)  || 0,
+        fixlets,
+        dev:          devMap[bid] || [],
+      };
+    });
+
+    // Populate category filter
+    const cats = [...new Set(BL.flatMap(b => b.cat).filter(Boolean))].sort();
+    const sel = document.getElementById('fCt');
+    sel.innerHTML = '<option value="">All Categories</option>';
+    cats.forEach(c => { const o = document.createElement('option'); o.value = o.textContent = c; sel.appendChild(o); });
+
+    buildCounts();
+    renderSections();
+    renderFlatTable();
+  } catch(e) {
+    sectEl.innerHTML = `
+      <div style="padding:32px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);color:var(--overdue)">
+        <strong>&#9888; Could not load patch data from SharePoint</strong><br>
+        <span style="font-size:.8rem;color:var(--sub);display:block;margin-top:8px">${e.message}<br><br>
+        This page must be hosted at <code>${SP_BASE}</code> and you must be signed in.<br>
+        To preview locally, open via the <strong>Patch Dashboard.bat</strong> shortcut on your Desktop.</span>
+      </div>`;
+    document.getElementById('c-ov').textContent = document.getElementById('c-urg').textContent =
+    document.getElementById('c-w').textContent  = document.getElementById('c-f').textContent = '–';
+  }
+}
+
+  // ── OVERDUE ──────────────────────────────────────────────────────────
+  { id:'msfeb26', due:'2026-03-17',
+    name:'Microsoft Security Updates 2026 – February',
+    cat:'Microsoft Security', tags:[],
+    noncompliant: false, // devices still show "Available" in BigFix, not "Noncompliant"
+    dev:['5GTRISTATION','CGAY-6G-SASERV','CGAY-7G-SASERV'],
+    compTotal:20, cveCount:24,
+    fixlets:[
+      { kb:'KB5075902', desc:'Servicing Stack – Win 10 1607 / Server 2016',       sev:'c' },
+      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
+      { kb:'KB5075912', desc:'Cumulative Update – Win 10 21H2',                    sev:'i' },
+      { kb:'KB5075941', desc:'Cumulative Update – Win 11 23H2',                    sev:'i' },
+      { kb:'KB5075999', desc:'Cumulative Update – Win 10 1607 LTSB / Server 2016', sev:'i' },
+      { kb:'KB5077181', desc:'Cumulative Update – Win 11 24H2 / 25H2',             sev:'i' },
+      { kb:'KB5075899', desc:'Cumulative Update – Windows Server 2025',            sev:'i' },
+      { kb:'KB5075906', desc:'Cumulative Update – Windows Server 2022',            sev:'i' },
+      { kb:'KB5002837', desc:'Security Update – Microsoft Excel 2016',             sev:'i' },
+      { kb:'KB5002839', desc:'Security Update – Microsoft Word 2016',              sev:'i' },
+    ]},
+
+  // ── DUE ≤ 7 DAYS ─────────────────────────────────────────────────────
+  { id:'rocksr11feb26', due:'2026-04-07',
+    name:'Rockwell CPR9 SR11 – Microsoft Security Updates 2026 – February',
+    cat:'Rockwell Vendor-Qualified', tags:['hw'],
+    dev:['CAPE-UTIL054'],
+    compTotal:4, cveCount:0,
+    fixlets:[
+      { kb:'KB5075902', desc:'Servicing Stack – Windows Server 2016',              sev:'c' },
+      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC',               sev:'i' },
+      { kb:'KB5075999', desc:'Cumulative Update – Windows Server 2016',            sev:'i' },
+    ]},
+
+  // ── DUE ≤ 30 DAYS ────────────────────────────────────────────────────
+  { id:'vnqfeb26', due:'2026-04-28',
+    name:'Vendor Non-Qualified – Microsoft Security Updates 2026 – February',
+    cat:'Vendor Non-Qualified', tags:['vnq'],
+    dev:['CAPEACM','CAPE-UTIL050','CAPE-UTIL051','CAPE-UTIL052','CAPE-UTIL053','CAPE-UTIL060','CAPE-UTIL061','CG-2016-DEV01','CG-5G-PREMSV1','CG-5G-QCS-SVR','CG-6G-QCS-SVR','CG-7G-PREMSVR','CG-7G-QCS-SVR','CG-GK22MP-SE10'],
+    compTotal:16, cveCount:24,
+    fixlets:[
+      { kb:'KB5075902', desc:'Servicing Stack – Win 10 1607 / Server 2016',       sev:'c' },
+      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
+      { kb:'KB5075912', desc:'Cumulative Update – Win 10 21H2',                    sev:'i' },
+      { kb:'KB5075941', desc:'Cumulative Update – Win 11 23H2',                    sev:'i' },
+      { kb:'KB5075999', desc:'Cumulative Update – Win 10 1607 LTSB / Server 2016', sev:'i' },
+      { kb:'KB5077181', desc:'Cumulative Update – Win 11 24H2 / 25H2',             sev:'i' },
+      { kb:'KB5075899', desc:'Cumulative Update – Windows Server 2025',            sev:'i' },
+      { kb:'KB5075906', desc:'Cumulative Update – Windows Server 2022',            sev:'i' },
+    ]},
+
+  // ── FUTURE ───────────────────────────────────────────────────────────
+  { id:'honeyfeb26', due:'2026-05-11',
+    name:'Honeywell PKS R520 – Microsoft Security Updates 2026 – February',
+    cat:'Honeywell Vendor-Qualified', tags:['hw'],
+    dev:['CG-5G-ESC01','CG-5G-ESF01','CG-5G-ESF02','CG-5G-ESF03','CG-5G-ESF04','CG-5G-ESF05','CG-5G-ESF06','CG-5G-ESF07','CG-5G-ESF08','CG-5G-ESF09','CG-5G-ESF10','CG-5G-ESVA','CG-5G-ESVB','CG-6G-ESC01','CG-6G-ESF01','CG-6G-ESF02','CG-6G-ESF03','CG-6G-ESF04','CG-6G-ESF05','CG-6G-ESF06','CG-6G-ESF07','CG-6G-ESF08','CG-6G-ESF09','CG-6G-ESF10','CG-6G-ESVA','CG-6G-ESVB','CG-7G-ESC01','CG-7G-ESF01','CG-7G-ESF02','CG-7G-ESF03','CG-7G-ESF04','CG-7G-ESF05','CG-7G-ESF06','CG-7G-ESF07','CG-7G-ESF08','CG-7G-ESF09','CG-7G-ESF10','CG-7G-ESVA','CG-7G-ESVB','CG-CFP-ESF12'],
+    compTotal:7, cveCount:24,
+    fixlets:[
+      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
+      { kb:'KB5002837', desc:'Security Update – Microsoft Excel 2016',             sev:'i' },
+      { kb:'KB5002839', desc:'Security Update – Microsoft Word 2016',              sev:'i' },
+    ]},
+
+// ──────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────
+function days(iso)  { return Math.round((new Date(iso) - TODAY) / 86400000); }
+function urg(iso, bl) { const d=days(iso); if(d<0) return (bl && bl.noncompliant===true)?'ov':'urg'; return d<=7?'urg':d<=30?'w':'f'; }
+function cdText(iso){ const d=days(iso); if(d<0) return `${Math.abs(d)}d OVERDUE`; if(d===0) return 'DUE TODAY'; if(d===1) return '1 day left'; return `${d} days left`; }
+function fmtD(iso)  { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function barW(iso)  { const d=days(iso); if(d<0) return 100; return Math.max(5,Math.round(((120-Math.min(d,120))/120)*100)); }
+const BAND_CFG = {
+  ov:  { label:'Overdue — Immediate Action Required',  pill:'sp-ov',  cls:'sh-ov',  icon:'⚠️',  desc:'Past due date — act now' },
+  urg: { label:'Due Within 7 Days — Patch Now',         pill:'sp-urg', cls:'sh-urg', icon:'🔥',  desc:'Deadline this week' },
+  w:   { label:'Due Within 30 Days — Schedule Soon',    pill:'sp-w',   cls:'sh-w',   icon:'⏰',  desc:'Schedule and prepare' },
+  f:   { label:'Future — Plan Ahead',                   pill:'sp-f',   cls:'sh-f',   icon:'📅',  desc:'No immediate action needed' },
+};
+const TAG_LBL = { app:'App Update', reboot:'Reboot Req.', hw:'Vendor Qualified', vnq:'Vendor Non-Qual' };
+
+// ──────────────────────────────────────────────
+// BAND COUNTS
+// ──────────────────────────────────────────────
+let activeBand = null;
+function buildCounts() {
+  const c={ov:0,urg:0,w:0,f:0};
+  BL.forEach(b => c[urg(b.due, b)]++);
+  ['ov','urg','w','f'].forEach(k => document.getElementById('c-'+k).textContent=c[k]);
+}
+function toggleBand(band) {
+  document.querySelectorAll('.band').forEach(el=>el.classList.remove('active'));
+  activeBand = activeBand===band ? null : band;
+  if (activeBand) {
+    document.querySelector(`.band[onclick="toggleBand('${band}')"]`).classList.add('active');
+    document.getElementById('fUr').value = band;
+  } else {
+    document.getElementById('fUr').value = '';
+  }
+  renderSections();
+  renderTable();
+}
+
+// ──────────────────────────────────────────────
+// BASELINE CARDS
+// ──────────────────────────────────────────────
+function cardHTML(bl) {
+  const u   = urg(bl.due, bl);
+  const pct = barW(bl.due);
+  const tags = bl.tags.map(t=>`<span class="tag ${t}">${TAG_LBL[t]}</span>`).join('');
+  const catTag = `<span class="tag">${bl.cat}</span>`;
+  const chips  = bl.dev.map(d=>`<span class="dchip">${d}</span>`).join('');
+  const critN  = bl.fixlets ? bl.fixlets.filter(f=>f.sev==='c').length : 0;
+  const kbRows = bl.fixlets ? bl.fixlets.map(f=>`
+    <div class="kb-item">
+      <span class="kb-num">${f.kb}</span>
+      <span class="kb-desc">${f.desc}</span>
+      <span class="sev-${f.sev}">${f.sev==='c'?'Critical':'Important'}</span>
+    </div>`).join('') : '';
+  const sevStat = critN > 0
+    ? `<div class="bl-stat"><span class="sv" style="color:var(--overdue)">${critN}</span><span class="sk">Critical KB${critN!==1?'s':''}</span></div>`
+    : '';
+  const cveStat = (bl.cveCount > 0)
+    ? `<div class="bl-stat"><span class="sv">${bl.cveCount}</span><span class="sk">CVEs</span></div>`
+    : '';
+  const compStat = bl.compTotal
+    ? `<div class="bl-stat"><span class="sv">${bl.compTotal}</span><span class="sk">Components</span></div>`
+    : '';
+  return `
+  <div class="bl-card ${u}">
+    <div class="card-top">
+      <div class="due-row">
+        <div class="due-block">
+          <div class="lbl">&#128197; Baseline Due Date</div>
+          <div class="date">${fmtD(bl.due)}</div>
+        </div>
+        <span class="cd-badge">${cdText(bl.due)}</span>
+      </div>
+      <div class="urg-bar"><div class="urg-fill" style="width:${pct}%"></div></div>
+      <div class="bl-name">${bl.name}</div>
+      <div class="bl-stats">
+        <div class="bl-stat"><span class="sv">${bl.dev.length}</span><span class="sk">Devices Pending</span></div>
+        ${compStat}${sevStat}${cveStat}
+      </div>
+      <div class="tag-row">${catTag}${tags}</div>
+    </div>
+    ${bl.fixlets ? `
+    <button class="comp-toggle">
+      <span>&#128196; ${bl.compTotal} components (${bl.fixlets.length} unique KBs)</span>
+      <span class="dev-arrow">&#9660;</span>
+    </button>
+    <div class="comp-list">${kbRows}</div>` : ''}
+    <button class="dev-toggle">
+      <span>&#128065; Show ${bl.dev.length} device${bl.dev.length!==1?'s':''}</span>
+      <span class="dev-arrow">&#9660;</span>
+    </button>
+    <div class="dev-list">
+      <div class="dev-chips">${chips}</div>
+    </div>
+  </div>`;
+}
+
+function renderSections() {
+  const grp={ov:[],urg:[],w:[],f:[]};
+  BL.forEach(b => grp[urg(b.due, b)].push(b));
+  Object.values(grp).forEach(a=>a.sort((x,y)=>new Date(x.due)-new Date(y.due)));
+  const show = activeBand ? [activeBand] : ['ov','urg','w','f'];
+  const el = document.getElementById('sections');
+  el.innerHTML = show.map(band=>{
+    const arr=grp[band]; if(!arr.length) return '';
+    const cfg=BAND_CFG[band];
+    return `<div class="sec-hdr ${cfg.cls}"><h2>${cfg.icon} ${cfg.label}</h2><span class="sec-pill ${cfg.pill}">${arr.length} baseline${arr.length!==1?'s':''}</span><span class="sec-desc">${cfg.desc}</span></div>
+            <div class="bl-grid">${arr.map(cardHTML).join('')}</div>`;
+  }).join('');
+  el.querySelectorAll('.comp-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btn.nextElementSibling.classList.toggle('open');
+      btn.querySelector('.dev-arrow').classList.toggle('open');
+    });
+  });
+  el.querySelectorAll('.dev-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btn.nextElementSibling.classList.toggle('open');
+      btn.querySelector('.dev-arrow').classList.toggle('open');
+    });
+  });
+}
+
+// TABLE (renamed to avoid conflict with init)
+function renderFlatTable(){
+  const srch = document.getElementById('srch').value.toLowerCase();
+  const fu   = document.getElementById('fUr').value;
+  const fc   = document.getElementById('fCt').value;
+  const FLAT = BL.flatMap(bl => bl.dev.map(d=>({ computer:d, baseline:bl.name, cat:bl.cat, due:bl.due, u:urg(bl.due, bl) })));
+  let rows = FLAT.filter(r=>{
+    if(fu && r.u!==fu) return false;
+    if(fc && r.cat!==fc) return false;
+    if(srch && ![r.computer,r.baseline,r.cat].join(' ').toLowerCase().includes(srch)) return false;
+    return true;
+  });
+  const keys = ['computer','baseline','cat','due','due','u'];
+  rows.sort((a,b)=>{
+    let va=a[keys[sc]], vb=b[keys[sc]];
+    if(sc===4){va=days(a.due);vb=days(b.due);}
+    const c=va<vb?-1:va>vb?1:0; return sa?c:-c;
+  });
+  document.getElementById('tMeta').textContent=`${rows.length.toLocaleString()} of ${FLAT.length.toLocaleString()} records`;
+  const urgLabel={ov:'Overdue',urg:'≤ 7 Days',w:'≤ 30 Days',f:'Future'};
+  document.getElementById('tBody').innerHTML=rows.map(r=>`<tr>
+    <td class="mono">${r.computer}</td>
+    <td style="font-size:.79rem">${r.baseline}</td>
+    <td style="font-size:.74rem;color:var(--sub)">${r.cat}</td>
+    <td class="due-td">${fmtD(r.due)}</td>
+    <td><span class="chip ${r.u}">${cdText(r.due)}</span></td>
+    <td style="font-size:.74rem;color:var(--sub)">${urgLabel[r.u]}</td>
+  </tr>`).join('');
+}
+
+function clr(){
+  document.getElementById('srch').value='';
+  document.getElementById('fUr').value='';
+  document.getElementById('fCt').value='';
+  activeBand=null;
+  document.querySelectorAll('.band').forEach(el=>el.classList.remove('active'));
+  renderSections();
+  renderFlatTable();
+}
+
+['srch','fUr','fCt'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>{
+    if(id==='fUr'){activeBand=el.value||null; renderSections();}
+    renderFlatTable();
+  });
+  el.addEventListener('change',()=>{
+    if(id==='fUr'){activeBand=el.value||null; renderSections();}
+    renderFlatTable();
+  });
+});
+
+initDashboard();
+
+// ──────────────────────────────────────────────────────────────────────────
+// CROWDSTRIKE VULNERABILITIES — reads from SharePoint list "CrowdStrikeVulns"
+//
+// SHAREPOINT LIST SCHEMA (create this list in your site):
+//   List name : CrowdStrikeVulns
+//   Columns   :
+//     Title          (single line)  — computer/hostname  e.g. CG-5G-ESF01
+//     CVEId          (single line)  — CVE ID             e.g. CVE-2026-21222
+//     Severity       (choice)       — Critical | High | Medium | Low
+//     Product        (single line)  — affected product   e.g. Windows Server 2019
+//     Status         (choice)       — Open | Remediated | Ignored
+//     LastUpdated    (date/time)    — when PA last wrote this row
+//
+// POWER AUTOMATE FLOW (scheduled, e.g. every 4 hours):
+//   Trigger  : Recurrence
+//   Step 1   : HTTP — GET https://api.crowdstrike.com/oauth2/token
+//              Body: client_id=<ID>&client_secret=<SECRET>&grant_type=client_credentials
+//              (store ID+Secret in PA encrypted connection or Key Vault)
+//   Step 2   : HTTP — GET https://api.crowdstrike.com/spotlight/combined/vulnerabilities/v1
+//              ?filter=status:'open'+hostname:['CG-*','CAPE-*','MSDCG01',...]
+//              Header: Authorization: Bearer <token from Step 1>
+//   Step 3   : For each vulnerability in the response:
+//              SharePoint "Create or update item" in CrowdStrikeVulns
+//              (match on Title+CVEId to avoid duplicates)
+// ──────────────────────────────────────────────────────────────────────────
+const SEV_CLS = { critical:'vc-crit', high:'vc-high', medium:'vc-med', low:'vc-low' };
+
+const SP_LIST_NAME = 'CrowdStrikeVulns';
+const SP_BASE      = 'https://pgone.sharepoint.com/sites/CapeITOT';
+
+function vulnSevCls(s) { return SEV_CLS[(s||'').toLowerCase()] || 'vc-none'; }
+
+function renderVulns(items) {
+  const grid = document.getElementById('vuln-grid');
+  const pill = document.getElementById('vuln-count-pill');
+  if (!items.length) {
+    grid.innerHTML = '<div class="vuln-empty">&#10003; No open vulnerabilities found for your devices in this list.</div>';
+    pill.textContent = '0 open';
+    return;
+  }
+  // Group by hostname
+  const byHost = {};
+  items.forEach(r => {
+    const host = (r.Title || '').toUpperCase();
+    if (!byHost[host]) byHost[host] = { sev: r.Severity || '', cves: [] };
+    // Track highest severity per host
+    const order = ['critical','high','medium','low'];
+    const cur = (byHost[host].sev || '').toLowerCase();
+    const inc = (r.Severity || '').toLowerCase();
+    if (order.indexOf(inc) < order.indexOf(cur) || !cur) byHost[host].sev = r.Severity;
+    byHost[host].cves.push({ id: r.CVEId, product: r.Product, sev: r.Severity });
+  });
+
+  // Sort: critical first, then by host name
+  const sevO = s => ({'critical':0,'high':1,'medium':2,'low':3}[(s||'').toLowerCase()] ?? 4);
+  const hosts = Object.entries(byHost).sort((a,b) => sevO(a[1].sev) - sevO(b[1].sev) || a[0].localeCompare(b[0]));
+
+  pill.textContent = `${items.length} open across ${hosts.length} hosts`;
+  pill.style.background = hosts.some(h=>h[1].sev.toLowerCase()==='critical') ? '#ffd5d5' : '';
+  pill.style.color       = hosts.some(h=>h[1].sev.toLowerCase()==='critical') ? 'var(--overdue)' : '';
+
+  grid.innerHTML = hosts.map(([host, data]) => {
+    const cls  = vulnSevCls(data.sev);
+    const cves = data.cves.map(c =>
+      `<a href="https://nvd.nist.gov/vuln/detail/${c.id}" target="_blank" rel="noopener noreferrer">${c.id}</a> <span style="opacity:.6;font-size:.67rem">${c.product||''}</span>`
+    ).join('<br>');
+    return `<div class="vuln-card ${cls}">
+      <div class="vc-top">
+        <div class="vc-host">${host}</div>
+        <div class="vc-pills">
+          <span class="vc-sev ${cls}">${data.sev || 'Unknown'}</span>
+          <span style="font-size:.67rem;color:var(--sub);padding:2px 0">${data.cves.length} CVE${data.cves.length!==1?'s':''}</span>
+        </div>
+      </div>
+      <div class="vc-cve-list">${cves}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadVulns() {
+  const status = document.getElementById('vuln-status');
+  const spBase = SP_BASE;
+  status.textContent = 'Loading…';
+  document.getElementById('vuln-count-pill').textContent = 'loading…';
+  const url = `${spBase}/_api/web/lists/getbytitle('${SP_LIST_NAME}')/items`
+            + `?$filter=Status eq 'Open'`
+            + `&$select=Title,CVEId,Severity,Product,Status,LastUpdated`
+            + `&$orderby=Severity asc`
+            + `&$top=500`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json;odata=verbose' },
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — are you signed into SharePoint?`);
+    const data = await res.json();
+    const items = data?.d?.results || [];
+    renderVulns(items);
+    status.textContent = `Last refreshed ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    status.textContent = '⚠ ' + e.message;
+    document.getElementById('vuln-count-pill').textContent = 'error';
+    document.getElementById('vuln-grid').innerHTML =
+      `<div class="vuln-empty" style="color:var(--overdue)">Could not load: ${e.message}<br><small>This works when the dashboard is hosted on SharePoint and you are signed in.</small></div>`;
+  }
+}
+
+// Auto-load vulnerabilities on page open
+(function initVulns() { loadVulns(); }());
+</script>
+
+<script>
+// ──────────────────────────────────────────────
+// PATCH ASSISTANT — GitHub Copilot API
+// Two-step auth: ghu_* → session token → chat/completions
+// Token stored in localStorage; session auto-refreshed on expiry
+// ──────────────────────────────────────────────
+(function () {
+  'use strict';
+
+  const LS_GHU  = 'patchdash_ghu_v1';
+  const LS_SESS = 'patchdash_sess_v1';
+
+  let _sToken   = null;
+  let _sExpiry  = 0;
+  let _endpoint = 'https://api.business.githubcopilot.com';
+  let _history  = []; // {role, content} rolling window
+
+  // ── System prompt (context-aware) ──────────────────────────
+  function buildSystemPrompt() {
+    if (!BL.length) return 'You are a patch management assistant. Data is still loading from SharePoint.';
+    const lines = BL.map(bl => {
+      const d = days(bl.due);
+      const s = d < 0 ? `OVERDUE by ${Math.abs(d)} days` : d === 0 ? 'DUE TODAY' : `due in ${d} days (${fmtD(bl.due)})`;
+      return `BASELINE: ${bl.name}\n  Due date: ${fmtD(bl.due)} — ${s}\n  Category: ${bl.cat}\n  Devices (${bl.dev.length}): ${bl.dev.join(', ')}`;
+    }).join('\n\n');
+    return `You are a concise patch management assistant for the Cape Girardeau OT site. Today is April 6, 2026.\n\nPatch baseline data:\n\n${lines}\n\nAnswer questions about these baselines, due dates, devices, and urgency. Keep replies short and direct. If something is outside this data, say so.`;
+  }
+
+  // ── Token exchange ──────────────────────────────────────────
+  function extractEndpoint(token) {
+    const m = token.match(/proxy-ep=([^;]+)/);
+    return m ? 'https://' + m[1].replace(/^proxy\./, 'api.') : 'https://api.business.githubcopilot.com';
+  }
+
+  function loadCachedSession() {
+    try {
+      const c = JSON.parse(localStorage.getItem(LS_SESS) || 'null');
+      if (c && c.expiresAt > Date.now() + 60000) {
+        _sToken = c.token; _sExpiry = c.expiresAt;
+        _endpoint = extractEndpoint(c.token);
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  function cacheSession(token, expiresAt) {
+    _sToken = token; _sExpiry = expiresAt;
+    _endpoint = extractEndpoint(token);
+    localStorage.setItem(LS_SESS, JSON.stringify({ token, expiresAt }));
+  }
+
+  async function ensureSession() {
+    if (_sToken && _sExpiry > Date.now() + 60000) return;
+    if (loadCachedSession()) return;
+    const ghu = localStorage.getItem(LS_GHU);
+    if (!ghu) throw new Error('No GitHub token configured.');
+    setStatus('Authenticating\u2026');
+    const res = await fetch('https://api.github.com/copilot_internal/v2/token', {
+      headers: {
+        'Authorization': 'token ' + ghu,
+        'Accept': 'application/json',
+        'Editor-Version': 'vscode/1.99.0',
+        'Editor-Plugin-Version': 'copilot-chat/0.27.2025021401',
+      },
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem(LS_GHU);
+        setTokenUI(false);
+        throw new Error('GitHub token rejected (401). Please re-enter it.');
+      }
+      throw new Error('Token exchange failed: ' + res.status);
+    }
+    const data = await res.json();
+    cacheSession(data.token, data.expires_at * 1000);
+    setStatus('GitHub Copilot \u00b7 claude-sonnet-4.5');
+  }
+
+  // ── Streaming chat completion ───────────────────────────────
+  async function callCopilot(messages, onChunk) {
+    const res = await fetch(_endpoint + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + _sToken,
+        'Editor-Version': 'vscode/1.99.0',
+        'Editor-Plugin-Version': 'copilot-chat/0.27.2025021401',
+        'Copilot-Integration-Id': 'vscode-chat',
+        'Openai-Intent': 'conversation-panel',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4.5', messages, stream: true, max_tokens: 2048 }),
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        _sToken = null; _sExpiry = 0;
+        localStorage.removeItem(LS_SESS);
+        throw new Error('SESSION_EXPIRED');
+      }
+      throw new Error('API error ' + res.status);
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', content = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') continue;
+        try {
+          const chunk = JSON.parse(raw);
+          const txt = chunk.choices?.[0]?.delta?.content || '';
+          if (txt) { content += txt; onChunk(txt); }
+        } catch {}
+      }
+    }
+    return content;
+  }
+
+  async function callWithRetry(messages, onChunk) {
+    try {
+      return await callCopilot(messages, onChunk);
+    } catch (e) {
+      if (e.message === 'SESSION_EXPIRED') {
+        await ensureSession();
+        return await callCopilot(messages, onChunk);
+      }
+      throw e;
+    }
+  }
+
+  // ── UI helpers ──────────────────────────────────────────────
+  function setStatus(t) { document.getElementById('ch-stat').textContent = t; }
+
+  function setTokenUI(has) {
+    document.getElementById('chat-token-setup').style.display = has ? 'none' : '';
+    document.getElementById('chat-input-row').style.display   = has ? '' : 'none';
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('chat-err');
+    el.textContent = msg; el.style.display = '';
+  }
+  function hideErr() { document.getElementById('chat-err').style.display = 'none'; }
+
+  function appendMsg(role, html, typing) {
+    const d = document.createElement('div');
+    d.className = 'cmsg ' + role + (typing ? ' typing' : '');
+    d.innerHTML = html;
+    const el = document.getElementById('chat-msgs');
+    el.appendChild(d); el.scrollTop = el.scrollHeight;
+    return d;
+  }
+
+  function toHtml(t) {
+    return t
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n/g,'<br>');
+  }
+
+  // ── Public API (called from HTML) ──────────────────────────
+  window.chatToggle = function () {
+    const p = document.getElementById('chat-panel');
+    p.classList.toggle('open');
+    document.getElementById('chat-notif').style.display = 'none';
+    if (p.classList.contains('open')) {
+      setTokenUI(!!localStorage.getItem(LS_GHU));
+      if (localStorage.getItem(LS_GHU))
+        setTimeout(() => document.getElementById('chat-input').focus(), 220);
+    }
+  };
+
+  window.chatShowSetup = function () { setTokenUI(false); };
+
+  window.saveToken = function () {
+    const val = document.getElementById('ghu-input').value.trim();
+    const validPrefix = val.startsWith('ghu_') || val.startsWith('ghp_') || val.startsWith('github_pat_');
+    if (!validPrefix || val.length < 10) {
+      showErr('Paste your full GitHub token (ghu_\u2026 or ghp_\u2026). Get it from VS Code \u2192 Accounts menu.');
+      return;
+    }
+    localStorage.setItem(LS_GHU, val);
+    localStorage.removeItem(LS_SESS);
+    _sToken = null; _sExpiry = 0;
+    document.getElementById('ghu-input').value = '';
+    setTokenUI(true); hideErr();
+    document.getElementById('chat-input').focus();
+    appendMsg('bot', '&#9989; Token saved! What would you like to know about your patch baselines?');
+  };
+
+  window.chatKey = function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  };
+
+  window.sendMsg = async function () {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const btn = document.getElementById('chat-send');
+    input.value = ''; input.style.height = '38px';
+    btn.disabled = true; hideErr();
+
+    // User bubble
+    const ud = document.createElement('div');
+    ud.className = 'cmsg user'; ud.textContent = text;
+    const msgEl = document.getElementById('chat-msgs');
+    msgEl.appendChild(ud); msgEl.scrollTop = msgEl.scrollHeight;
+    _history.push({ role: 'user', content: text });
+
+    // Typing indicator
+    const bd = appendMsg('bot', '<span style="opacity:.45">&#9679;&#9679;&#9679;</span>', true);
+
+    try {
+      await ensureSession();
+      const msgs = [
+        { role: 'system', content: buildSystemPrompt() },
+        ..._history.slice(-20),
+      ];
+      let streamed = '';
+      await callWithRetry(msgs, chunk => {
+        streamed += chunk;
+        bd.classList.remove('typing');
+        bd.innerHTML = toHtml(streamed);
+        msgEl.scrollTop = msgEl.scrollHeight;
+      });
+      _history.push({ role: 'assistant', content: streamed || '(no response)' });
+      if (!streamed) bd.innerHTML = '(no response)';
+    } catch (e) {
+      bd.remove();
+      _history.pop();
+      const friendly = (e.message.toLowerCase().includes('fetch'))
+        ? 'Network error — CORS may block direct calls from a local file. Try hosting on SharePoint.'
+        : e.message;
+      showErr('\u26a0\ufe0f ' + friendly);
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  };
+
+  // ── Auto-resize textarea ────────────────────────────────────
+  document.getElementById('chat-input').addEventListener('input', function () {
+    this.style.height = '38px';
+    this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+  });
+
+  // ── Init ─────────────────────────────────────────────────────
+  setTokenUI(!!localStorage.getItem(LS_GHU));
+  loadCachedSession();
+
+}());
+</script>
+</body>
+</html>
