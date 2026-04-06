@@ -509,67 +509,6 @@ async function initDashboard() {
   if (accounts.length) { document.getElementById('signin-overlay').style.display='none'; await initDashboard(); loadVulns(); }
 })();
 
-  // ── OVERDUE ──────────────────────────────────────────────────────────
-  { id:'msfeb26', due:'2026-03-17',
-    name:'Microsoft Security Updates 2026 – February',
-    cat:'Microsoft Security', tags:[],
-    noncompliant: false, // devices still show "Available" in BigFix, not "Noncompliant"
-    dev:['5GTRISTATION','CGAY-6G-SASERV','CGAY-7G-SASERV'],
-    compTotal:20, cveCount:24,
-    fixlets:[
-      { kb:'KB5075902', desc:'Servicing Stack – Win 10 1607 / Server 2016',       sev:'c' },
-      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
-      { kb:'KB5075912', desc:'Cumulative Update – Win 10 21H2',                    sev:'i' },
-      { kb:'KB5075941', desc:'Cumulative Update – Win 11 23H2',                    sev:'i' },
-      { kb:'KB5075999', desc:'Cumulative Update – Win 10 1607 LTSB / Server 2016', sev:'i' },
-      { kb:'KB5077181', desc:'Cumulative Update – Win 11 24H2 / 25H2',             sev:'i' },
-      { kb:'KB5075899', desc:'Cumulative Update – Windows Server 2025',            sev:'i' },
-      { kb:'KB5075906', desc:'Cumulative Update – Windows Server 2022',            sev:'i' },
-      { kb:'KB5002837', desc:'Security Update – Microsoft Excel 2016',             sev:'i' },
-      { kb:'KB5002839', desc:'Security Update – Microsoft Word 2016',              sev:'i' },
-    ]},
-
-  // ── DUE ≤ 7 DAYS ─────────────────────────────────────────────────────
-  { id:'rocksr11feb26', due:'2026-04-07',
-    name:'Rockwell CPR9 SR11 – Microsoft Security Updates 2026 – February',
-    cat:'Rockwell Vendor-Qualified', tags:['hw'],
-    dev:['CAPE-UTIL054'],
-    compTotal:4, cveCount:0,
-    fixlets:[
-      { kb:'KB5075902', desc:'Servicing Stack – Windows Server 2016',              sev:'c' },
-      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC',               sev:'i' },
-      { kb:'KB5075999', desc:'Cumulative Update – Windows Server 2016',            sev:'i' },
-    ]},
-
-  // ── DUE ≤ 30 DAYS ────────────────────────────────────────────────────
-  { id:'vnqfeb26', due:'2026-04-28',
-    name:'Vendor Non-Qualified – Microsoft Security Updates 2026 – February',
-    cat:'Vendor Non-Qualified', tags:['vnq'],
-    dev:['CAPEACM','CAPE-UTIL050','CAPE-UTIL051','CAPE-UTIL052','CAPE-UTIL053','CAPE-UTIL060','CAPE-UTIL061','CG-2016-DEV01','CG-5G-PREMSV1','CG-5G-QCS-SVR','CG-6G-QCS-SVR','CG-7G-PREMSVR','CG-7G-QCS-SVR','CG-GK22MP-SE10'],
-    compTotal:16, cveCount:24,
-    fixlets:[
-      { kb:'KB5075902', desc:'Servicing Stack – Win 10 1607 / Server 2016',       sev:'c' },
-      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
-      { kb:'KB5075912', desc:'Cumulative Update – Win 10 21H2',                    sev:'i' },
-      { kb:'KB5075941', desc:'Cumulative Update – Win 11 23H2',                    sev:'i' },
-      { kb:'KB5075999', desc:'Cumulative Update – Win 10 1607 LTSB / Server 2016', sev:'i' },
-      { kb:'KB5077181', desc:'Cumulative Update – Win 11 24H2 / 25H2',             sev:'i' },
-      { kb:'KB5075899', desc:'Cumulative Update – Windows Server 2025',            sev:'i' },
-      { kb:'KB5075906', desc:'Cumulative Update – Windows Server 2022',            sev:'i' },
-    ]},
-
-  // ── FUTURE ───────────────────────────────────────────────────────────
-  { id:'honeyfeb26', due:'2026-05-11',
-    name:'Honeywell PKS R520 – Microsoft Security Updates 2026 – February',
-    cat:'Honeywell Vendor-Qualified', tags:['hw'],
-    dev:['CG-5G-ESC01','CG-5G-ESF01','CG-5G-ESF02','CG-5G-ESF03','CG-5G-ESF04','CG-5G-ESF05','CG-5G-ESF06','CG-5G-ESF07','CG-5G-ESF08','CG-5G-ESF09','CG-5G-ESF10','CG-5G-ESVA','CG-5G-ESVB','CG-6G-ESC01','CG-6G-ESF01','CG-6G-ESF02','CG-6G-ESF03','CG-6G-ESF04','CG-6G-ESF05','CG-6G-ESF06','CG-6G-ESF07','CG-6G-ESF08','CG-6G-ESF09','CG-6G-ESF10','CG-6G-ESVA','CG-6G-ESVB','CG-7G-ESC01','CG-7G-ESF01','CG-7G-ESF02','CG-7G-ESF03','CG-7G-ESF04','CG-7G-ESF05','CG-7G-ESF06','CG-7G-ESF07','CG-7G-ESF08','CG-7G-ESF09','CG-7G-ESF10','CG-7G-ESVA','CG-7G-ESVB','CG-CFP-ESF12'],
-    compTotal:7, cveCount:24,
-    fixlets:[
-      { kb:'KB5075904', desc:'Cumulative Update – Win 10 1809 LTSC / Server 2019', sev:'i' },
-      { kb:'KB5002837', desc:'Security Update – Microsoft Excel 2016',             sev:'i' },
-      { kb:'KB5002839', desc:'Security Update – Microsoft Word 2016',              sev:'i' },
-    ]},
-
 // ──────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────
@@ -744,8 +683,6 @@ function clr(){
     renderFlatTable();
   });
 });
-
-initDashboard();
 
 // ──────────────────────────────────────────────────────────────────────────
 // CROWDSTRIKE VULNERABILITIES — reads from SharePoint list "CrowdStrikeVulns"
