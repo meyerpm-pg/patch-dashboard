@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Patch Baseline Dashboard – Cape Girardeau</title>
+<!-- Microsoft Authentication Library (MSAL.js) for secure OAuth2 / Graph API access -->
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
 /* ── RESET & BASE ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -135,7 +137,16 @@ main { max-width: 1380px; margin: 0 auto; padding: 28px 22px 60px; }
 .sev-c { background: #ffeaea; color: var(--overdue); font-size: .63rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 .sev-i { background: #fff2ea; color: var(--urgent); font-size: .63rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 
-/* ── VULN SECTION ── */
+/* ── SIGN-IN OVERLAY ── */
+#signin-overlay { position:fixed; inset:0; background:rgba(20,30,60,.88); z-index:2000; display:flex; align-items:center; justify-content:center; }
+.signin-box { background:#fff; border-radius:16px; padding:40px 44px; text-align:center; max-width:380px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+.signin-box .sb-logo { font-size:2.4rem; margin-bottom:14px; }
+.signin-box h2 { font-size:1.1rem; font-weight:800; color:var(--hdr); margin-bottom:8px; }
+.signin-box p { font-size:.8rem; color:var(--sub); margin-bottom:24px; line-height:1.6; }
+.signin-btn { display:inline-flex; align-items:center; gap:10px; background:var(--hdr); color:#fff; border:none; border-radius:9px; padding:12px 24px; font-size:.88rem; font-weight:700; cursor:pointer; transition:background .15s; width:100%; justify-content:center; }
+.signin-btn:hover { background:#253660; }
+.signin-btn:disabled { opacity:.5; cursor:default; }
+.sb-err { margin-top:14px; font-size:.74rem; color:var(--overdue); display:none; }
 .vuln-cfg-bar { background:#fff8e1; border:1px solid #ffe082; border-radius:10px; padding:13px 18px; margin-bottom:18px; font-size:.78rem; color:#795548; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .vuln-cfg-bar strong { color:#5d4037; }
 .vuln-cfg-bar input { padding:6px 10px; border:1px solid #ffe082; border-radius:6px; font-family:var(--mono); font-size:.74rem; min-width:320px; background:#fff; outline:none; }
@@ -231,6 +242,20 @@ footer { text-align:center; color:var(--sub); font-size:.72rem; padding:18px; bo
 </style>
 </head>
 <body>
+
+<!-- Sign-in overlay (shown until authenticated) -->
+<div id="signin-overlay">
+  <div class="signin-box">
+    <div class="sb-logo">&#128737;</div>
+    <h2>Patch Baseline Dashboard</h2>
+    <p>Sign in with your PG Microsoft account to load live patch data from SharePoint.</p>
+    <button class="signin-btn" id="signin-btn" onclick="msalSignIn()">
+      <svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <div class="sb-err" id="sb-err"></div>
+  </div>
+</div>
 
 <header class="site-header">
   <h1>&#128197; Patch Baseline Dashboard</h1>
@@ -333,76 +358,132 @@ footer { text-align:center; color:var(--sub); font-size:.72rem; padding:18px; bo
 const TODAY = new Date('2026-04-06');
 
 // ──────────────────────────────────────────────────────────────────────────
-// SHAREPOINT DATA SOURCE
-// All baseline + device data lives in two SharePoint lists:
+// MICROSOFT AUTH (MSAL) + MICROSOFT GRAPH DATA SOURCE
 //
-//   List 1: PatchBaselines
-//     Title         (single line)  — baseline display name
-//     BaselineId    (single line)  — short id, e.g. msfeb26
-//     DueDate       (date/time)    — baseline due date
-//     Category      (single line)  — e.g. "Microsoft Security"
-//     Tags          (single line)  — comma-separated: hw, vnq, reboot, app
-//     Noncompliant  (Yes/No)       — true only if BigFix shows Noncompliant
-//     CompTotal     (number)       — total component count
-//     CveCount      (number)       — total CVE count
-//     KBList        (multi-line)   — JSON array: [{kb,desc,sev},...]
+// Azure AD App setup (one-time, ~5 min):
+//   1. portal.azure.com → Azure Active Directory → App registrations → New registration
+//   2. Name: patch-dashboard
+//      Supported account types: ● Accounts in this organizational directory only
+//                                 (Procter & Gamble only — Single tenant)   ← SELECT THIS
+//   3. Redirect URI: Single-page application (SPA) → https://meyerpm-pg.github.io/patch-dashboard/
+//   4. API permissions → Add a permission → Microsoft Graph → Delegated → Sites.Read.All
+//      Then click "Grant admin consent for Procter & Gamble"
+//   5. Copy the Application (client) ID (Overview tab) → paste as CLIENT_ID below
 //
-//   List 2: PatchDevices
-//     Title         (single line)  — computer/hostname
-//     BaselineId    (single line)  — matches BaselineId in PatchBaselines
+// SINGLE TENANT: Only @pgone.com / @pg.com accounts can authenticate.
+// No external users can ever sign in — enforced by both the app registration
+// (single-tenant flag) and the authority URL below (tenant-locked to pgone.com).
 // ──────────────────────────────────────────────────────────────────────────
-const SP_BASE      = 'https://pgone.sharepoint.com/sites/CapeITOT';
-const SP_HEADERS   = { 'Accept': 'application/json;odata=verbose' };
-const SP_CREDS     = 'include';
+const CLIENT_ID   = '83c333df-25b2-4f78-8920-68aa3e5db14b';
+const SP_SITE     = 'pgone.sharepoint.com:/sites/CapeITOT:';
+const GRAPH_SCOPE = ['https://graph.microsoft.com/Sites.Read.All'];
 
-let BL = [];  // populated by initDashboard()
+const msalApp = new msal.PublicClientApplication({
+  auth: {
+    clientId:    CLIENT_ID,
+    // Single-tenant: locks auth to P&G's Azure AD tenant exclusively.
+    // Tip: you can also use your Tenant ID GUID instead of the domain for extra robustness.
+    // Find it: Azure AD → Overview → Tenant ID
+    authority:   'https://login.microsoftonline.com/pgone.com',
+    redirectUri: window.location.origin + window.location.pathname,
+  },
+  cache: { cacheLocation: 'sessionStorage' },
+});
 
-async function spFetch(listName, query) {
-  const url = `${SP_BASE}/_api/web/lists/getbytitle('${listName}')/items?${query}&$top=2000`;
-  const res = await fetch(url, { headers: SP_HEADERS, credentials: SP_CREDS });
-  if (!res.ok) throw new Error(`SharePoint list "${listName}" returned HTTP ${res.status}`);
-  const data = await res.json();
-  return data?.d?.results || [];
+let _graphToken = null;
+
+async function getToken() {
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length) {
+    try {
+      const r = await msalApp.acquireTokenSilent({ scopes: GRAPH_SCOPE, account: accounts[0] });
+      return r.accessToken;
+    } catch {}
+  }
+  const r = await msalApp.acquireTokenPopup({ scopes: GRAPH_SCOPE });
+  return r.accessToken;
 }
+
+async function graphFetch(path) {
+  const token = _graphToken || (_graphToken = await getToken());
+  const res = await fetch(`https://graph.microsoft.com/v1.0/${path}`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (res.status === 401) {
+    _graphToken = await getToken(); // refresh
+    return graphFetch(path);
+  }
+  if (!res.ok) throw new Error(`Graph API error ${res.status} on ${path}`);
+  const data = await res.json();
+  // Handle Graph pagination
+  let items = data.value || [];
+  let next = data['@odata.nextLink'];
+  while (next) {
+    const nr = await fetch(next, { headers: { 'Authorization': 'Bearer ' + _graphToken } });
+    const nd = await nr.json();
+    items = items.concat(nd.value || []);
+    next = nd['@odata.nextLink'];
+  }
+  return items;
+}
+
+window.msalSignIn = async function() {
+  const btn = document.getElementById('signin-btn');
+  const err = document.getElementById('sb-err');
+  btn.disabled = true; btn.textContent = 'Signing in…'; err.style.display = 'none';
+  try {
+    _graphToken = await getToken();
+    document.getElementById('signin-overlay').style.display = 'none';
+    await initDashboard();
+    loadVulns();
+  } catch(e) {
+    err.textContent = e.message || 'Sign-in failed. Try again.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Sign in with Microsoft`;
+  }
+};
+
+let BL = [];
 
 async function initDashboard() {
   const sectEl = document.getElementById('sections');
   sectEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--sub)">&#8987; Loading patch data from SharePoint…</div>';
   try {
-    const [baselines, devices] = await Promise.all([
-      spFetch('PatchBaselines', '$select=Title,BaselineId,DueDate,Category,Tags,Noncompliant,CompTotal,CveCount,KBList&$orderby=DueDate asc'),
-      spFetch('PatchDevices',   '$select=Title,BaselineId'),
+    const base = `sites/${SP_SITE}/lists`;
+    const [blRaw, devRaw] = await Promise.all([
+      graphFetch(`${base}/PatchBaselines/items?$expand=fields($select=Title,BaselineId,DueDate,Category,Tags,Noncompliant,CompTotal,CveCount,KBList)&$top=500`),
+      graphFetch(`${base}/PatchDevices/items?$expand=fields($select=Title,BaselineId)&$top=2000`),
     ]);
 
-    // Build device map: baselineId -> [hostname, ...]
     const devMap = {};
-    devices.forEach(d => {
-      const bid = (d.BaselineId || '').trim();
+    devRaw.forEach(item => {
+      const f = item.fields || {};
+      const bid = (f.BaselineId || '').trim();
       if (!devMap[bid]) devMap[bid] = [];
-      devMap[bid].push((d.Title || '').toUpperCase());
+      if (f.Title) devMap[bid].push(f.Title.toUpperCase());
     });
 
-    // Build BL array from SharePoint data
-    BL = baselines.map(b => {
-      const bid = (b.BaselineId || '').trim();
+    BL = blRaw.map(item => {
+      const f = item.fields || {};
+      const bid = (f.BaselineId || '').trim();
       let fixlets = [];
-      try { fixlets = JSON.parse(b.KBList || '[]'); } catch {}
+      try { fixlets = JSON.parse(f.KBList || '[]'); } catch {}
       return {
         id:           bid,
-        due:          (b.DueDate || '').slice(0, 10),
-        name:         b.Title || '',
-        cat:          b.Category || '',
-        tags:         (b.Tags || '').split(',').map(t=>t.trim()).filter(Boolean),
-        noncompliant: b.Noncompliant === true || b.Noncompliant === 'Yes',
-        compTotal:    parseInt(b.CompTotal) || 0,
-        cveCount:     parseInt(b.CveCount)  || 0,
+        due:          (f.DueDate || '').slice(0, 10),
+        name:         f.Title || '',
+        cat:          f.Category || '',
+        tags:         (f.Tags || '').split(',').map(t=>t.trim()).filter(Boolean),
+        noncompliant: f.Noncompliant === true,
+        compTotal:    parseInt(f.CompTotal) || 0,
+        cveCount:     parseInt(f.CveCount)  || 0,
         fixlets,
         dev:          devMap[bid] || [],
       };
-    });
+    }).sort((a,b) => new Date(a.due) - new Date(b.due));
 
-    // Populate category filter
-    const cats = [...new Set(BL.flatMap(b => b.cat).filter(Boolean))].sort();
+    const cats = [...new Set(BL.map(b => b.cat).filter(Boolean))].sort();
     const sel = document.getElementById('fCt');
     sel.innerHTML = '<option value="">All Categories</option>';
     cats.forEach(c => { const o = document.createElement('option'); o.value = o.textContent = c; sel.appendChild(o); });
@@ -413,15 +494,20 @@ async function initDashboard() {
   } catch(e) {
     sectEl.innerHTML = `
       <div style="padding:32px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);color:var(--overdue)">
-        <strong>&#9888; Could not load patch data from SharePoint</strong><br>
-        <span style="font-size:.8rem;color:var(--sub);display:block;margin-top:8px">${e.message}<br><br>
-        This page must be hosted at <code>${SP_BASE}</code> and you must be signed in.<br>
-        To preview locally, open via the <strong>Patch Dashboard.bat</strong> shortcut on your Desktop.</span>
+        <strong>&#9888; Could not load patch data</strong><br>
+        <span style="font-size:.8rem;color:var(--sub);display:block;margin-top:8px">${e.message}</span>
       </div>`;
     document.getElementById('c-ov').textContent = document.getElementById('c-urg').textContent =
     document.getElementById('c-w').textContent  = document.getElementById('c-f').textContent = '–';
   }
 }
+
+// Auto-signin if already have a cached session
+(async () => {
+  await msalApp.initialize();
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length) { document.getElementById('signin-overlay').style.display='none'; await initDashboard(); loadVulns(); }
+})();
 
   // ── OVERDUE ──────────────────────────────────────────────────────────
   { id:'msfeb26', due:'2026-03-17',
@@ -688,9 +774,6 @@ initDashboard();
 // ──────────────────────────────────────────────────────────────────────────
 const SEV_CLS = { critical:'vc-crit', high:'vc-high', medium:'vc-med', low:'vc-low' };
 
-const SP_LIST_NAME = 'CrowdStrikeVulns';
-const SP_BASE      = 'https://pgone.sharepoint.com/sites/CapeITOT';
-
 function vulnSevCls(s) { return SEV_CLS[(s||'').toLowerCase()] || 'vc-none'; }
 
 function renderVulns(items) {
@@ -742,34 +825,37 @@ function renderVulns(items) {
 
 async function loadVulns() {
   const status = document.getElementById('vuln-status');
-  const spBase = SP_BASE;
   status.textContent = 'Loading…';
   document.getElementById('vuln-count-pill').textContent = 'loading…';
-  const url = `${spBase}/_api/web/lists/getbytitle('${SP_LIST_NAME}')/items`
-            + `?$filter=Status eq 'Open'`
-            + `&$select=Title,CVEId,Severity,Product,Status,LastUpdated`
-            + `&$orderby=Severity asc`
-            + `&$top=500`;
   try {
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json;odata=verbose' },
-      credentials: 'include'
+    if (!_graphToken) {
+      // If user hasn't signed in yet, wait quietly
+      status.textContent = 'Sign in above to load vulnerability data.';
+      document.getElementById('vuln-count-pill').textContent = '–';
+      return;
+    }
+    const raw = await graphFetch(
+      `sites/${SP_SITE}/lists/CrowdStrikeVulns/items`
+      + `?$expand=fields($select=Title,CVEId,Severity,Product,Status,LastUpdated)`
+      + `&$filter=fields/Status eq 'Open'`
+      + `&$top=500`
+    );
+    const items = raw.map(r => {
+      const f = r.fields || {};
+      return { Title: f.Title, CVEId: f.CVEId, Severity: f.Severity, Product: f.Product, Status: f.Status, LastUpdated: f.LastUpdated };
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} — are you signed into SharePoint?`);
-    const data = await res.json();
-    const items = data?.d?.results || [];
     renderVulns(items);
     status.textContent = `Last refreshed ${new Date().toLocaleTimeString()}`;
   } catch(e) {
     status.textContent = '⚠ ' + e.message;
     document.getElementById('vuln-count-pill').textContent = 'error';
     document.getElementById('vuln-grid').innerHTML =
-      `<div class="vuln-empty" style="color:var(--overdue)">Could not load: ${e.message}<br><small>This works when the dashboard is hosted on SharePoint and you are signed in.</small></div>`;
+      `<div class="vuln-empty" style="color:var(--overdue)">Could not load: ${e.message}</div>`;
   }
 }
 
-// Auto-load vulnerabilities on page open
-(function initVulns() { loadVulns(); }());
+// Auto-load vulnerabilities once signed in (called after initDashboard succeeds)
+(function initVulns() { if (_graphToken) loadVulns(); }());
 </script>
 
 <script>
