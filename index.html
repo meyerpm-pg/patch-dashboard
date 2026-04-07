@@ -381,14 +381,14 @@ const GRAPH_SCOPE = ['https://graph.microsoft.com/Sites.Read.All'];
 const msalApp = new msal.PublicClientApplication({
   auth: {
     clientId:    CLIENT_ID,
-    // Single-tenant: locks auth to P&G's Azure AD tenant exclusively.
-    // Tip: you can also use your Tenant ID GUID instead of the domain for extra robustness.
-    // Find it: Azure AD → Overview → Tenant ID
     authority:   'https://login.microsoftonline.com/pgone.com',
     redirectUri: window.location.origin + window.location.pathname,
   },
   cache: { cacheLocation: 'sessionStorage' },
 });
+
+// Initialize once at startup — must complete before ANY msal call
+const _msalReady = msalApp.initialize();
 
 let _graphToken = null;
 
@@ -432,6 +432,7 @@ window.msalSignIn = async function() {
   const err = document.getElementById('sb-err');
   btn.disabled = true; btn.textContent = 'Signing in…'; err.style.display = 'none';
   try {
+    await _msalReady;          // wait for MSAL to finish initializing
     _graphToken = await getToken();
     document.getElementById('signin-overlay').style.display = 'none';
     await initDashboard();
@@ -504,7 +505,7 @@ async function initDashboard() {
 
 // Auto-signin if already have a cached session
 (async () => {
-  await msalApp.initialize();
+  await _msalReady;            // reuse the same init promise
   const accounts = msalApp.getAllAccounts();
   if (accounts.length) { document.getElementById('signin-overlay').style.display='none'; await initDashboard(); loadVulns(); }
 })();
